@@ -4,52 +4,31 @@
 
 MainGui := Gui(,"Auto-Backup Sederhana",)
 MainGui.SetFont("s12", "Calibri")
-MainGui.Add("Text",,"File atau folder mana yang mau dicadangkan?")
+MainGui.Add("Text",,"File dan folder mana yang mau dicadangkan?")
+Selectedfilesandfolders := MainGui.AddEdit("r1 w230 ReadOnly", "")
 MainGui.SetFont("s10", "Calibri")
-MainGui.AddButton("xs+50 h28 w80 vSelectfile", "Pilih file").OnEvent("Click", Buttonfileselect)
-MainGui.AddButton("x+20 h28 w90 vSelectfolder", "Pilih folder").OnEvent("Click", Buttonfolderselect)
+MainGui.AddButton("x+10 h28 w60 vSelectfile", "Pilih").OnEvent("Click", Buttonfileselect)
 MainGui.SetFont("s12", "Calibri")
 MainGui.Add("Text","xs","Destinasinya ke mana?")
 Destinationname := MainGui.AddEdit("r1 w230 ReadOnly", "")
 MainGui.SetFont("s10", "Calibri")
 MainGui.AddButton("x+10 h28 w60", "Pilih").OnEvent("Click", Destinationselect)
 MainGui.SetFont("s12", "Calibri")
-MainGui.Add("Text","xs","Kapan mau dicadangkan?")
-Timetobackup := MainGui.AddDateTime(" vTimetobackup w230", "Time")
+MainGui.Add("Text","xs","Setiap kapan mau dicadangkan?")
+Num := MainGui.AddEdit("r1 w140 Number", "")
+Interval := MainGui.AddDropDownList("x+10 r3 w80 vIntervalchoices", ["detik", "menit", "jam"])
 MainGui.SetFont("s10", "Calibri")
 MainGui.AddButton("x+10 h28 w60", "Atur").OnEvent('Click', Whentostart)
 MainGui.SetFont("S6", "Calibri")
 MainGui.AddLink("xs+85 y+10", 'Created by M. Ndaru Wibowo - <a href="https://github.com/ndaruwibowo">GitHub Repo</a>')
 MainGui.OnEvent("Close", Closeall)
-Fileselected := MainGui.AddListbox("xs r1 w230 ReadOnly Hidden")
-Folderselected := MainGui.AddEdit("r1 w230 ReadOnly Hidden")
 MainGui.Show("AutoSize")
 
 Buttonfileselect(*)
 {
-    global Fileselected := Fileselect("M3",,"Pilih satu atau beberapa file")
-    if (Fileselected.Length = 0)
-    {
-        ControlSetText("Pilih file", "Button1")
-    } else {
-        ControlSetText("File terpilih", "Button1")
-        global Folderselected := ""
-        ControlSetText("Pilih folder", "Button2")
-    }
-}
-
-Buttonfolderselect(*)
-{
-    global Folderselected := FileSelect("D3",, "Select folder that will be backed up","")
-    if (Folderselected = "")
-    {
-        ControlSetText("Pilih folder", "Button2")
-    } else {
-        ControlSetText("Folder terpilih", "Button2")
-        global Fileselected := ""
-        ControlSetText("Pilih file", "Button1")
-    }
-    
+    unparsedfilesandfolders := Fileselect("MD3",,"Pilih satu atau beberapa file dan folder")
+    For Index, val in unparsedfilesandfolders
+        Selectedfilesandfolders.Value .= "|" val
 }
 
 Destinationselect(*)
@@ -59,9 +38,42 @@ Destinationselect(*)
 
 Whentostart(*)
 {
-Exit
+Loop Parse Selectedfilesandfolders.Value, "|"
+            Loop Files, A_LoopField, "DF"
+                {
+                    global ErrorCount := CopyFilesAndFolders(A_LoopFileFullPath, Destinationname.Value)
+                    if ErrorCount != 0
+                        MsgBox ErrorCount " files/folders could not be copied."
+        
+                    CopyFilesAndFolders(SourcePattern, DestinationFolder, DoOverwrite := true)
+                    ; Copies all files and folders matching SourcePattern into the folder named DestinationFolder and
+                    ; returns the number of files/folders that could not be copied.
+                    {
+                        global ErrorCount := 0
+                        ; First copy all the files (but not the folders):
+                        try
+                            FileCopy SourcePattern, DestinationFolder, DoOverwrite
+                        catch as Err
+                            ErrorCount := Err.Extra
+                        ; Now copy all the folders:
+                        Loop Files, SourcePattern, "D"  ; D means "retrieve folders only".
+                        {
+                            try
+                                DirCopy A_LoopFilePath, DestinationFolder "\" A_LoopFileName, DoOverwrite
+                            catch
+                            {
+                                global ErrorCount += 1
+                                ; Report each problem folder by name.
+                                MsgBox "Could not copy " A_LoopFilePath " into " DestinationFolder
+                            }
+                        }
+                        return ErrorCount
+                    }
+                }
+		MainGui.Show("AutoSize NA")
+        Sleep 3000
+        MainGui.Hide()
 }
-
 Closeall(*)
 {
 ExitApp
