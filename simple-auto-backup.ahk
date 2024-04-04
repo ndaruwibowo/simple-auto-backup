@@ -18,7 +18,7 @@ MainGui.Add("Text","xs","Setiap kapan mau dicadangkan?")
 Num := MainGui.AddEdit("r1 w140 Number", "")
 Interval := MainGui.AddDropDownList("x+10 r3 w80 vIntervalchoices", ["detik", "menit", "jam"])
 MainGui.SetFont("s10", "Calibri")
-MainGui.AddButton("x+10 h28 w60", "Atur").OnEvent('Click', Whentostart)
+MainGui.AddButton("x+10 h28 w60", "Mulai").OnEvent('Click', Whentostart)
 MainGui.SetFont("S6", "Calibri")
 MainGui.AddLink("xs+85 y+10", 'Created by M. Ndaru Wibowo - <a href="https://github.com/ndaruwibowo">GitHub Repo</a>')
 MainGui.OnEvent("Close", Closeall)
@@ -38,41 +38,51 @@ Destinationselect(*)
 
 Whentostart(*)
 {
-Loop Parse Selectedfilesandfolders.Value, "|"
-            Loop Files, A_LoopField, "DF"
+    Loop
+        {
+            Switch
+            {
+                case "detik": Interval := 1000
+                case "menit": Interval := 60000
+                case "jam": Interval := 3600000
+            }
+            sleepInteval := (Num * Interval)
+            Sleep sleepInteval
+            Loop Parse Selectedfilesandfolders.Value, "|"
                 {
-                    global ErrorCount := CopyFilesAndFolders(A_LoopFileFullPath, Destinationname.Value)
-                    if ErrorCount != 0
-                        MsgBox ErrorCount " files/folders could not be copied."
-        
-                    CopyFilesAndFolders(SourcePattern, DestinationFolder, DoOverwrite := true)
-                    ; Copies all files and folders matching SourcePattern into the folder named DestinationFolder and
-                    ; returns the number of files/folders that could not be copied.
-                    {
-                        global ErrorCount := 0
-                        ; First copy all the files (but not the folders):
-                        try
-                            FileCopy SourcePattern, DestinationFolder, DoOverwrite
-                        catch as Err
-                            ErrorCount := Err.Extra
-                        ; Now copy all the folders:
-                        Loop Files, SourcePattern, "D"  ; D means "retrieve folders only".
+                    Loop Files, A_LoopField, "DF"
                         {
-                            try
-                                DirCopy A_LoopFilePath, DestinationFolder "\" A_LoopFileName, DoOverwrite
-                            catch
-                            {
-                                global ErrorCount += 1
-                                ; Report each problem folder by name.
-                                MsgBox "Could not copy " A_LoopFilePath " into " DestinationFolder
+                            global ErrorCount := CopyFilesAndFolders(A_LoopFileFullPath, Destinationname.Value)
+                                if ErrorCount != 0
+                                    MsgBox ErrorCount " files/folders could not be copied."
+                
+                                    CopyFilesAndFolders(SourcePattern, DestinationFolder, DoOverwrite := true)
+                                    ; Copies all files and folders matching SourcePattern into the folder named DestinationFolder and
+                                    ; returns the number of files/folders that could not be copied.
+                                    {
+                                        global ErrorCount := 0
+                                        ; First copy all the files (but not the folders):
+                                        try
+                                        FileCopy SourcePattern, DestinationFolder, DoOverwrite
+                                        catch as Err
+                                        ErrorCount := Err.Extra
+                                        ; Now copy all the folders:
+                                        Loop Files, SourcePattern, "D"  ; D means "retrieve folders only".
+                                        {
+                                            try
+                                            DirCopy A_LoopFilePath, DestinationFolder "\" A_LoopFileName, DoOverwrite
+                                            catch
+                                            {
+                                                global ErrorCount += 1
+                                                ; Report each problem folder by name.
+                                                MsgBox "Could not copy " A_LoopFilePath " into " DestinationFolder
+                                            }
+                                        }
+                                        return ErrorCount
+                                    }
                             }
-                        }
-                        return ErrorCount
-                    }
                 }
-		MainGui.Show("AutoSize NA")
-        Sleep 3000
-        MainGui.Hide()
+    }
 }
 Closeall(*)
 {
